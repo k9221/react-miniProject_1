@@ -6,8 +6,9 @@ import Join from './component/Join';
 import Main from './component/Main';
 import Menu from './component/Menu';
 import MyPage from './component/MyPage';
-import { Feed } from '@mui/icons-material';
 import Register from './component/Register';
+import Feed from './component/Feed';
+
 
 
 const drawerWidth = 240;

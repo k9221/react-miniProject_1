@@ -8,10 +8,10 @@ function Menu() {
     <Drawer
       variant="permanent"
       sx={{
-        width: 240, // 너비 설정
+        width: 240,
         flexShrink: 0,
         '& .MuiDrawer-paper': {
-          width: 240, // Drawer 내부의 너비 설정
+          width: 240,
           boxSizing: 'border-box',
         },
       }}
@@ -21,7 +21,7 @@ function Menu() {
         SNS 메뉴
       </Typography>
       <List>
-        <ListItem button component={Link} to="/">
+        <ListItem button component={Link} to="/feed">
           <ListItemIcon>
             <Home />
           </ListItemIcon>
@@ -42,6 +42,6 @@ function Menu() {
       </List>
     </Drawer>
   );
-};
+}
 
 export default Menu;

@@ -38,9 +38,12 @@ function Feed() {
 
   const fetchFeeds = async () => {
     try {
-      const response = await axios.get('/api/feeds'); // API 호출
+      const response = await axios.get('http://localhost:3100/feed');
+      console.log('응답 데이터', response.data);
       if (response.data.success) {
-        setFeeds(response.data.list); // 피드 데이터를 상태에 저장
+        // 각 피드에 liked 속성 추가
+        const feedsWithLiked = response.data.list.map(feed => ({ ...feed, liked: false }));
+        setFeeds(feedsWithLiked);
       } else {
         console.error('피드 데이터 조회 실패:', response.data.message);
       }
@@ -52,20 +55,71 @@ function Feed() {
   const handleClickOpen = (feed) => {
     setSelectedFeed(feed);
     setOpen(true);
-    setComments([]); // 댓글 초기화
-    setNewComment(''); // 댓글 입력 초기화
+    setComments([]);
+    setNewComment('');
   };
 
   const handleClose = () => {
     setOpen(false);
     setSelectedFeed(null);
-    setComments([]); // 모달 닫을 때 댓글 초기화
+    setComments([]);
   };
 
-  const handleAddComment = () => {
+  const handleAddComment = async () => {
     if (newComment.trim()) {
-      setComments([...comments, { id: 'currentUser', text: newComment }]);
-      setNewComment('');
+      const userId = 'currentUserId'; // 현재 로그인된 사용자 ID를 가져옵니다.
+      const commentData = {
+        feed_id: selectedFeed.id, // 댓글이 달릴 피드 ID
+        user_id: userId, // 댓글 작성자 ID
+        content: newComment, // 댓글 내용
+      };
+  
+      try {
+        const response = await axios.post('http://localhost:3100/comments', commentData);
+        if (response.data.success) {
+          // 서버에 성공적으로 저장되면 댓글 목록 업데이트
+          setComments([...comments, { id: userId, text: newComment }]);
+          setNewComment(''); // 입력 필드 초기화
+        } else {
+          console.error('댓글 추가 실패:', response.data.message);
+        }
+      } catch (error) {
+        console.error('댓글 추가 중 오류 발생:', error);
+      }
+    }
+  };
+  
+  const fnLike = async (feed) => {
+    const userId = 'currentUserId'; // 현재 로그인된 사용자 ID를 가져옵니다.
+  
+    if (feed.liked) {
+      // 이미 좋아요를 눌렀다면 좋아요 수를 감소시키고 liked 상태를 false로 변경
+      try {
+        const response = await axios.put(`http://localhost:3100/feed/${feed.id}/like`, { userId });
+        if (response.data.success) {
+          setFeeds(feeds.map(f => 
+            f.id === feed.id ? { ...f, likes: f.likes - 1, liked: false } : f
+          ));
+        } else {
+          console.error(response.data.message);
+        }
+      } catch (error) {
+        console.error('좋아요 제거 중 오류 발생:', error);
+      }
+    } else {
+      // 좋아요를 눌렀다면 좋아요 수를 증가시키고 liked 상태를 true로 변경
+      try {
+        const response = await axios.put(`http://localhost:3100/feed/${feed.id}/like`, { userId });
+        if (response.data.success) {
+          setFeeds(feeds.map(f => 
+            f.id === feed.id ? { ...f, likes: f.likes + 1, liked: true } : f
+          ));
+        } else {
+          console.error(response.data.message);
+        }
+      } catch (error) {
+        console.error('좋아요 추가 중 오류 발생:', error);
+      }
     }
   };
 
@@ -85,7 +139,7 @@ function Feed() {
                 <CardMedia
                   component="img"
                   height="200"
-                  image={feed.image_url}
+                  image={`http://localhost:3100/${feed.image_urls}`} 
                   alt={feed.title}
                   onClick={() => handleClickOpen(feed)}
                   style={{ cursor: 'pointer' }}
@@ -95,9 +149,14 @@ function Feed() {
                   <Typography variant="body2" color="textSecondary">
                     {feed.content}
                   </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    좋아요: {feed.likes} | 댓글: {feed.comments}
-                  </Typography>
+                  <Box display="flex" alignItems="center" mt={1}>
+                    <Typography variant="body2" color="textSecondary" mr={2} onClick={() => fnLike(feed)}>
+                      좋아요: {feed.likes}
+                    </Typography>
+                    <Typography variant="body2" color="textSecondary">
+                      댓글 수: {feed.comments}
+                    </Typography>
+                  </Box>
                 </CardContent>
               </Card>
             </Grid>
@@ -121,12 +180,15 @@ function Feed() {
         <DialogContent sx={{ display: 'flex' }}>
           <Box sx={{ flex: 1 }}>
             <Typography variant="body1">{selectedFeed?.content}</Typography>
-            {selectedFeed?.image_url && (
-              <img
-                src={selectedFeed.image_url}
-                alt={selectedFeed.title}
-                style={{ width: '100%', marginTop: '10px' }}
-              />
+            {selectedFeed?.image_urls && (
+              selectedFeed.image_urls.split(',').map((url, index) => (
+                <img
+                  key={index}
+                  src={`http://localhost:3100/${url}`} 
+                  alt={selectedFeed.title}
+                  style={{ width: '100%', marginTop: '10px' }}
+                />
+              ))
             )}
           </Box>
 

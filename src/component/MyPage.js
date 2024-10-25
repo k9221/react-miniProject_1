@@ -1,63 +1,215 @@
-import React from 'react';
-import { Container, Typography, Box, Avatar, Grid, Paper } from '@mui/material';
-import { jwtDecode } from 'jwt-decode';
+import React, { useState, useEffect } from 'react';
+import {
+  Grid,
+  AppBar,
+  Toolbar,
+  Typography,
+  Container,
+  Box,
+  Card,
+  CardMedia,
+  CardContent,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  IconButton,
+  DialogActions,
+  Button,
+  TextField,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemAvatar,
+  Avatar,
+} from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
+import axios from 'axios';
 
+function Feed() {
+  const [feeds, setFeeds] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [selectedFeed, setSelectedFeed] = useState(null);
+  const [comments, setComments] = useState([]);
+  const [newComment, setNewComment] = useState('');
 
-function MyPage() {
-  const token = localStorage.getItem("token"); // 로컬 스토리지에서 토큰 꺼내기
-  const dToken = jwtDecode(token); // 디코딩
-  const { followingCount, followerCount} = dToken;
-  console.log(dToken);
-  
+  useEffect(() => {
+    fetchFeeds();
+  }, []);
 
+  const fetchFeeds = async () => {
+    try {
+      const response = await axios.get('http://localhost:3100/feed');
+      if (response.data.success) {
+        const feedsWithLiked = response.data.list.map(feed => ({ ...feed, liked: false }));
+        setFeeds(feedsWithLiked);
+      } else {
+        console.error('피드 데이터 조회 실패:', response.data.message);
+      }
+    } catch (error) {
+      console.error('API 호출 오류:', error);
+    }
+  };
+
+  const handleClickOpen = (feed) => {
+    setSelectedFeed(feed);
+    setOpen(true);
+    setComments([]); // 초기화
+    setNewComment(''); // 초기화
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+    setSelectedFeed(null);
+    setComments([]);
+  };
+
+  const handleAddComment = async () => {
+    if (newComment.trim()) {
+      try {
+        const response = await axios.post(`http://localhost:3100/feed/${selectedFeed.id}/comments`, {
+          user_id: 'currentUserId',  // 현재 로그인된 사용자 ID
+          content: newComment          // 댓글 내용
+        });
+
+        if (response.data.success) {
+          // 댓글 목록 업데이트
+          setComments([...comments, { id: 'currentUser', text: newComment }]);
+          setNewComment('');
+        } else {
+          console.error('댓글 추가 실패:', response.data.message);
+        }
+      } catch (error) {
+        console.error('댓글 추가 중 오류 발생:', error);
+      }
+    }
+  };
+
+  const fnLike = async (feed) => {
+    const userId = 'currentUserId'; // 현재 로그인된 사용자 ID를 가져옵니다.
+
+    try {
+      const response = await axios.put(`http://localhost:3100/feed/${feed.id}/like`, { userId });
+      if (response.data.success) {
+        const updatedFeed = { 
+          ...feed, 
+          likes: feed.liked ? feed.likes - 1 : feed.likes + 1, 
+          liked: !feed.liked 
+        };
+        setFeeds(feeds.map(f => (f.id === feed.id ? updatedFeed : f)));
+      } else {
+        console.error(response.data.message);
+      }
+    } catch (error) {
+      console.error('좋아요 상태 변경 중 오류 발생:', error);
+    }
+  };
 
   return (
     <Container maxWidth="md">
-      <Box
-        display="flex"
-        flexDirection="column"
-        alignItems="center"
-        justifyContent="flex-start"
-        minHeight="100vh"
-        sx={{ padding: '20px' }}
-      >
-        <Paper elevation={3} sx={{ padding: '20px', borderRadius: '15px', width: '100%' }}>
-          {/* 프로필 정보 상단 배치 */}
-          <Box display="flex" flexDirection="column" alignItems="center" sx={{ marginBottom: 3 }}>
-            <Avatar
-              alt="프로필 이미지"
-              src="https://images.unsplash.com/photo-1551963831-b3b1ca40c98e" // 프로필 이미지 경로
-              sx={{ width: 100, height: 100, marginBottom: 2 }}
-            />
-            <Typography variant="h5">{dToken.name}</Typography>
-            <Typography variant="body2" color="text.secondary">
-            {dToken.email || '이메일 없음'}
-            </Typography>
-          </Box>
-          <Grid container spacing={2} sx={{ marginTop: 2 }}>
-            <Grid item xs={4} textAlign="center">
-              <Typography variant="h6">팔로워</Typography>
-              <Typography variant="body1">{followerCount}</Typography>
+      <AppBar position="static">
+        <Toolbar>
+          <Typography variant="h6">SNS</Typography>
+        </Toolbar>
+      </AppBar>
+
+      <Box mt={4}>
+        <Grid container spacing={3}>
+          {feeds.map((feed) => (
+            <Grid item xs={12} sm={6} md={4} key={feed.id}>
+              <Card>
+                <CardMedia
+                  component="img"
+                  height="200"
+                  image={`http://localhost:3100/${feed.image_urls}`} 
+                  alt={feed.title}
+                  onClick={() => handleClickOpen(feed)}
+                  style={{ cursor: 'pointer' }}
+                />
+                <CardContent>
+                  <Typography variant="h6">{feed.title}</Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    {feed.content}
+                  </Typography>
+                  <Box display="flex" alignItems="center" mt={1}>
+                    <Typography variant="body2" color="textSecondary" mr={2} onClick={() => fnLike(feed)}>
+                      좋아요: {feed.likes}
+                    </Typography>
+                    <Typography variant="body2" color="textSecondary">
+                      댓글 수: {feed.comments}
+                    </Typography>
+                  </Box>
+                </CardContent>
+              </Card>
             </Grid>
-            <Grid item xs={4} textAlign="center">
-              <Typography variant="h6">팔로잉</Typography>
-              <Typography variant="body1">{followingCount}</Typography>
-            </Grid>
-            <Grid item xs={4} textAlign="center">
-              <Typography variant="h6">게시물</Typography>
-              <Typography variant="body1">50</Typography>
-            </Grid>
-          </Grid>
-          <Box sx={{ marginTop: 3 }}>
-            <Typography variant="h6">내 소개</Typography>
-            <Typography variant="body1">
-              안녕하세요! SNS를 통해 친구들과 소통하고 있습니다. 사진과 일상을 공유하는 것을 좋아해요.
-            </Typography>
-          </Box>
-        </Paper>
+          ))}
+        </Grid>
       </Box>
+
+      <Dialog open={open} onClose={handleClose} fullWidth maxWidth="lg">
+        <DialogTitle>
+          {selectedFeed?.title}
+          <IconButton
+            edge="end"
+            color="inherit"
+            onClick={handleClose}
+            aria-label="close"
+            sx={{ position: 'absolute', right: 8, top: 8 }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ display: 'flex' }}>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="body1">{selectedFeed?.content}</Typography>
+            {selectedFeed?.image_urls && (
+              selectedFeed.image_urls.split(',').map((url, index) => (
+                <img
+                  key={index}
+                  src={`http://localhost:3100/${url}`} 
+                  alt={selectedFeed.title}
+                  style={{ width: '100%', marginTop: '10px' }}
+                />
+              ))
+            )}
+          </Box>
+
+          <Box sx={{ width: '300px', marginLeft: '20px' }}>
+            <Typography variant="h6">댓글</Typography>
+            <List>
+              {comments.map((comment, index) => (
+                <ListItem key={index}>
+                  <ListItemAvatar>
+                    <Avatar>{comment.id.charAt(0).toUpperCase()}</Avatar>
+                  </ListItemAvatar>
+                  <ListItemText primary={comment.text} secondary={comment.id} />
+                </ListItem>
+              ))}
+            </List>
+            <TextField
+              label="댓글을 입력하세요"
+              variant="outlined"
+              fullWidth
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+            />
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleAddComment}
+              sx={{ marginTop: 1 }}
+            >
+              댓글 추가
+            </Button>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClose} color="primary">
+            닫기
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }
 
-export default MyPage;
+export default Feed;
