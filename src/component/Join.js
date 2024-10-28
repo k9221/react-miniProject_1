@@ -6,10 +6,11 @@ import Stack from '@mui/material/Stack';
 
 function Join() {
   const [idError, setIdError] = useState('');
-  const [idAvailable, setIdAvailable] = useState(''); // State for ID availability message
+  const [idAvailable, setIdAvailable] = useState('');
   const [pwdError, setPwdError] = useState('');
   const [pwdCheckError, setPwdCheckError] = useState('');
   const [nameError, setNameError] = useState('');
+  const [nikNameError, setNikNameError] = useState('');
   const [emailError, setEmailError] = useState('');
   const [phoneError, setPhoneError] = useState('');
 
@@ -19,6 +20,7 @@ function Join() {
   const nameRef = useRef();
   const emailRef = useRef();
   const phoneRef = useRef();
+  const nikNameRef = useRef();
 
   const navigate = useNavigate();
 
@@ -29,7 +31,6 @@ function Join() {
   const handleCheckId = async () => {
     const id = idRef.current.value;
 
-    // ID 유효성 검사
     const hasLetter = /[a-zA-Z]/.test(id);
     const hasNumber = /[0-9]/.test(id);
     const hasSpecialChar = /[!@#$%^&*()_+=[\]{};':"\\|,.<>?]/.test(id);
@@ -60,7 +61,7 @@ function Join() {
         setIdAvailable('');
       } else {
         setIdError('');
-        setIdAvailable('사용 가능한 아이디입니다.'); // Set availability message
+        setIdAvailable('사용 가능한 아이디입니다.');
       }
     } catch (error) {
       console.error("ID 중복 체크 오류:", error);
@@ -105,6 +106,19 @@ function Join() {
     }
   };
 
+  const validateNikName = (nikName) => {
+    const hasSpecialChar = /[^a-zA-Z0-9_-]/.test(nikName); // Allow only letters, numbers, _ and -
+    const hasEnglish = /^[a-zA-Z0-9_-]*$/.test(nikName); // Only English letters, numbers, _ and -
+
+    if (nikName.length < 2) {
+      setNikNameError('닉네임은 2자 이상이어야 합니다.');
+    } else if (hasSpecialChar || !hasEnglish) {
+      setNikNameError('닉네임에는 영어와 _ 또는 -만 사용할 수 있습니다.');
+    } else {
+      setNikNameError('');
+    }
+  };
+
   const validateEmail = (email) => {
     const regex = /^\S+@\S+\.\S+$/;
     if (!regex.test(email)) {
@@ -130,6 +144,7 @@ function Join() {
     const name = nameRef.current.value;
     const email = emailRef.current.value;
     const phone = phoneRef.current.value;
+    const nikName = nikNameRef.current.value;
 
     try {
       const res = await axios.post("http://localhost:3100/user/insert", {
@@ -138,12 +153,13 @@ function Join() {
         name,
         email,
         phone,
-        pwdCheck
+        pwdCheck,
+        nikName
       });
       console.log(res.data);
       if (res.data.success) {
         alert("회원가입 성공");
-        navigate("/main");
+        navigate("/feed");
       } else {
         alert(res.data.message);
       }
@@ -184,13 +200,13 @@ function Join() {
               fullWidth 
               margin="normal" 
               sx={{ width: '80%' }} 
-              onChange={() => setIdAvailable('')} // Clear availability message on input
+              onChange={() => setIdAvailable('')} 
               inputProps={{ maxLength: 16 }}
             />
             <Button variant="contained" sx={{ width: '20%' }} size='small' onClick={handleCheckId}>중복체크</Button>
           </Stack>
           {idError && <Typography color="error">{idError}</Typography>}
-          {idAvailable && <Typography color="green">{idAvailable}</Typography>} {/* Show availability message */}
+          {idAvailable && <Typography color="green">{idAvailable}</Typography>}
         </div>
         <TextField 
           inputRef={pwdRef} 
@@ -228,38 +244,36 @@ function Join() {
         />
         {nameError && <Typography color="error">{nameError}</Typography>}
         <TextField 
+          inputRef={nikNameRef} 
+          label="닉네임" 
+          variant="outlined" 
+          fullWidth 
+          margin="normal" 
+          inputProps={{ maxLength: 20 }} 
+          onChange={(e) => validateNikName(e.target.value)} 
+        />
+        {nikNameError && <Typography color="error">{nikNameError}</Typography>}
+        <TextField 
           inputRef={emailRef} 
           label="이메일" 
           variant="outlined" 
           fullWidth 
           margin="normal" 
-          inputProps={{ maxLength: 23 }}
           onChange={(e) => validateEmail(e.target.value)} 
         />
         {emailError && <Typography color="error">{emailError}</Typography>}
         <TextField 
           inputRef={phoneRef} 
-          label="휴대폰 번호" 
+          label="전화번호" 
           variant="outlined" 
           fullWidth 
           margin="normal" 
-          inputProps={{ maxLength: 14 }}
           onChange={(e) => validatePhone(e.target.value)} 
         />
         {phoneError && <Typography color="error">{phoneError}</Typography>}
-        
-        <Button 
-          variant="contained" 
-          color="primary" 
-          fullWidth 
-          sx={{ mt: 3, p: 1.5, borderRadius: '8px' }} 
-          onClick={fnJoin}
-        >
-          회원가입
+        <Button variant="contained" onClick={fnJoin} fullWidth sx={{ marginTop: 3 }}>
+          가입하기
         </Button>
-        <Typography mt={3} align="center" sx={{ color: '#555' }}>
-          이미 계정이 있으신가요? <a href="/login" style={{ color: '#1976d2', textDecoration: 'underline' }}>로그인</a>
-        </Typography>
       </Box>
     </Box>
   );

@@ -18,15 +18,7 @@ const Layout = ({ children }) => {
   const hideMenu = location.pathname === '/login' || location.pathname === '/join';
 
   return (
-    <Box sx={{ display: 'flex' }}>
-      <CssBaseline />     
-        <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
-          <Toolbar>
-            <Typography variant="h6" noWrap>
-              SNS 시스템
-            </Typography>
-          </Toolbar>
-        </AppBar>              
+    <Box sx={{ display: 'flex' }}>                
       {!hideMenu && (
         <Drawer
           variant="permanent"

@@ -18,7 +18,7 @@ function Menu() {
     >
       <Toolbar />
       <Typography variant="h6" component="div" sx={{ p: 2 }}>
-        SNS 메뉴
+        instagram
       </Typography>
       <List>
         <ListItem button component={Link} to="/feed">
@@ -37,7 +37,7 @@ function Menu() {
           <ListItemIcon>
             <AccountCircle />
           </ListItemIcon>
-          <ListItemText primary="마이페이지" />
+          <ListItemText primary="프로필" />
         </ListItem>
       </List>
     </Drawer>
