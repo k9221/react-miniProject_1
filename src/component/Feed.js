@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { jwtDecode } from 'jwt-decode';
 import {
   Grid,
   Typography,
@@ -7,22 +8,22 @@ import {
   Card,
   CardMedia,
   CardContent,
+  Avatar,
   Dialog,
   DialogTitle,
   DialogContent,
-  IconButton,
+  TextField,
   DialogActions,
   Button,
-  TextField,
+  IconButton,
   List,
   ListItem,
-  ListItemText,
   ListItemAvatar,
-  Avatar,
+  ListItemText,
 } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
 import Favorite from '@mui/icons-material/Favorite';
 import FavoriteBorder from '@mui/icons-material/FavoriteBorder';
+import CloseIcon from '@mui/icons-material/Close';
 import axios from 'axios';
 
 function Feed() {
@@ -31,16 +32,32 @@ function Feed() {
   const [selectedFeed, setSelectedFeed] = useState(null);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
+  const [userId, setUserId] = useState(null);
 
   useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      const decodedToken = jwtDecode(token);
+      if (decodedToken.id) {
+        setUserId(decodedToken.id);
+      } else {
+        console.error('userId가 디코딩된 토큰에 없습니다.');
+      }
+    }
     fetchFeeds();
   }, []);
-
   const fetchFeeds = async () => {
     try {
       const response = await axios.get('http://localhost:3100/feed');
       if (response.data.success) {
-        const feedsWithLiked = response.data.list.map(feed => ({ ...feed, liked: false }));
+        const likedFeeds = JSON.parse(localStorage.getItem('likedFeeds')) || {};
+        const feedsWithLiked = response.data.list.map(feed => {
+          const isLiked = likedFeeds[feed.id] === userId; // 로컬 스토리지에서 좋아요 상태 확인
+          return {
+            ...feed,
+            liked: isLiked, // 좋아요 상태 설정
+          };
+        });
         setFeeds(feedsWithLiked);
       } else {
         console.error('피드 데이터 조회 실패:', response.data.message);
@@ -50,11 +67,25 @@ function Feed() {
     }
   };
 
+  const fetchComments = async (feedId) => {
+    try {
+      const response = await axios.get(`http://localhost:3100/comments/${feedId}`);
+      if (response.data.success) {
+        setComments(response.data); // 댓글 목록을 설정
+      } else {
+        console.error('댓글 조회 실패:', response.data.message);
+      }
+    } catch (error) {
+      console.error('댓글 조회 중 오류 발생:', error);
+    }
+  };
+
   const handleClickOpen = (feed) => {
     setSelectedFeed(feed);
     setOpen(true);
     setComments([]);
     setNewComment('');
+    fetchComments(feed.id);
   };
 
   const handleClose = () => {
@@ -64,37 +95,60 @@ function Feed() {
   };
 
   const handleAddComment = async () => {
-    if (newComment.trim()) {
-      const userId = 'currentUserId';
-      const commentData = {
-        feed_id: selectedFeed.id,
-        user_id: userId,
-        content: newComment,
-      };
+    if (!newComment) return; // 댓글 내용이 없으면 추가하지 않음
 
-      try {
-        const response = await axios.post('http://localhost:3100/comments', commentData);
-        if (response.data.success) {
-          setComments([...comments, { id: userId, text: newComment }]);
-          setNewComment('');
-        } else {
-          console.error('댓글 추가 실패:', response.data.message);
-        }
-      } catch (error) {
-        console.error('댓글 추가 중 오류 발생:', error);
+    try {
+      const response = await axios.post('http://localhost:3100/comments', {
+        feed_id: selectedFeed.id, // 현재 피드 ID
+        user_id: userId, // 현재 사용자 ID
+        content: newComment,
+      });
+
+      if (response.data.success) {
+        // 댓글 추가 후 목록 갱신
+        setNewComment('');
+        fetchComments(selectedFeed.id); // 댓글 목록을 새로 가져오기
+      } else {
+        console.error('댓글 추가 실패:', response.data.message);
       }
+    } catch (error) {
+      console.error('댓글 추가 중 오류 발생:', error);
     }
   };
 
   const fnLike = async (feed) => {
-    const userId = 'currentUserId';
-
+    const likedFeeds = JSON.parse(localStorage.getItem('likedFeeds')) || {};
+  
+    if (!userId) {
+      console.error('사용자 ID가 없습니다.');
+      return; 
+    }
+  
     try {
       const response = await axios.put(`http://localhost:3100/feed/${feed.id}/like`, { userId });
+  
       if (response.data.success) {
-        setFeeds(feeds.map(f => 
-          f.id === feed.id ? { ...f, likes: feed.liked ? f.likes - 1 : f.likes + 1, liked: !feed.liked } : f
-        ));
+        const isLiked = response.data.message.includes('추가');
+        const updatedFeeds = feeds.map(f => {
+          if (f.id === feed.id) {
+            return {
+              ...f,
+              likes: isLiked ? f.likes + 1 : f.likes - 1,
+              liked: isLiked,  // 상태 업데이트
+            };
+          }
+          return f;
+        });
+  
+        setFeeds(updatedFeeds);
+  
+        // 로컬 스토리지에 상태 저장
+        if (isLiked) {
+          likedFeeds[feed.id] = userId; // 사용자 ID로 좋아요 추가
+        } else {
+          delete likedFeeds[feed.id]; // 좋아요 제거
+        }
+        localStorage.setItem('likedFeeds', JSON.stringify(likedFeeds));
       } else {
         console.error(response.data.message);
       }
@@ -125,7 +179,7 @@ function Feed() {
                     sx={{ width: 56, height: 56, marginRight: 2 }}
                   />
                   <Typography variant="subtitle1" color="textPrimary">
-                    닉네임
+                    {feed.user_id} 
                   </Typography>
                 </Box>
                 <CardMedia
@@ -156,6 +210,7 @@ function Feed() {
                         <Favorite fontSize="small" sx={{ color: 'red', marginRight: 0.5 }} />
                       ) : (
                         <FavoriteBorder fontSize="small" sx={{ marginRight: 0.5 }} />
+                        
                       )}
                       {feed.likes}
                     </Typography>
@@ -170,7 +225,7 @@ function Feed() {
         </Grid>
       </Box>
 
-      <Dialog open={open} onClose={handleClose} fullWidth maxWidth="lg" sx={{ '& .MuiPaper-root': { borderRadius: '16px' } }}>
+      <Dialog open={open} onClose={handleClose} fullWidth maxWidth="lg">
         <DialogTitle>
           {selectedFeed?.title}
           <IconButton
@@ -183,51 +238,43 @@ function Feed() {
             <CloseIcon />
           </IconButton>
         </DialogTitle>
-        <DialogContent sx={{ display: 'flex' }}>
-          <Box sx={{ flex: 1, pr: 2 }}>
-            <Typography variant="body1" paragraph>{selectedFeed?.content}</Typography>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column' }}>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="body1">{selectedFeed?.description}</Typography>
             {selectedFeed?.image_urls && (
-              selectedFeed.image_urls.split(',').map((url, index) => (
-                <img
-                  key={index}
-                  src={`http://localhost:3100/${url}`} 
-                  alt={selectedFeed.title}
-                  style={{ width: '100%', marginBottom: '10px', borderRadius: '8px' }}
-                />
-              ))
+              <img
+                src={`http://localhost:3100/${selectedFeed.image_urls}`}
+                alt={selectedFeed.title}
+                style={{ width: '100%', marginTop: '10px' }}
+              />
             )}
           </Box>
-
-          <Box sx={{ width: '300px', pl: 2 }}>
-            <Typography variant="h6" gutterBottom>댓글</Typography>
+          
+          <Box sx={{ width: '100%', marginTop: '20px' }}>
+            <Typography variant="h6">댓글</Typography>
             <List>
               {comments.map((comment, index) => (
-                <ListItem key={index} sx={{ borderBottom: '1px solid #f0f0f0' }}>
+                <ListItem key={index}>
                   <ListItemAvatar>
-                    <Avatar>{comment.id.charAt(0).toUpperCase()}</Avatar>
+                    <Avatar>{comment.user_id.charAt(0).toUpperCase()}</Avatar>
                   </ListItemAvatar>
-                  <ListItemText primary={comment.text} secondary={comment.id} />
+                  <ListItemText primary={comment.content} secondary={comment.user_id} />
                 </ListItem>
               ))}
             </List>
-            <TextField
-              label="댓글을 입력하세요"
-              variant="outlined"
-              fullWidth
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              sx={{ mt: 2, mb: 1 }}
-            />
-            <Button variant="contained" color="primary" onClick={handleAddComment} fullWidth>
-              댓글 추가
-            </Button>
           </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClose} color="primary">
-            닫기
+          <TextField
+            label="댓글 추가"
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            variant="outlined"
+            fullWidth
+            sx={{ marginTop: 2 }}
+          />
+          <Button onClick={handleAddComment} variant="contained" color="primary" sx={{ marginTop: 2 }}>
+            추가
           </Button>
-        </DialogActions>
+        </DialogContent>
       </Dialog>
     </Container>
   );

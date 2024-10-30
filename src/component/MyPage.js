@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Container, Typography, Box, Avatar, Paper, CircularProgress, Toolbar, Button, Divider } from '@mui/material';
+import { Container, Typography, Box, Avatar, Grid, Card, CardContent, CardMedia, CircularProgress, Toolbar, Button, Divider } from '@mui/material';
 import axios from 'axios';
-import {jwtDecode} from 'jwt-decode';
+import { jwtDecode } from 'jwt-decode';
 
 function MyPage() {
   const [followerCount, setFollowerCount] = useState(0);
@@ -9,7 +9,7 @@ function MyPage() {
   const [postCount, setPostCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState([]);
-  const [viewType, setViewType] = useState("myPosts");
+  const [viewType, setViewType] = useState("myPosts"); // 초기값은 'myPosts'
   const token = localStorage.getItem("token");
 
   useEffect(() => {
@@ -29,7 +29,7 @@ function MyPage() {
             setPostCount(postResponse.data.postCount);
           }
 
-          fetchMyPosts();
+          fetchMyPosts(); // 초기 로딩 시 내 게시글 가져오기
         } catch (error) {
           console.error('데이터 조회 오류:', error);
         } finally {
@@ -58,10 +58,21 @@ function MyPage() {
     try {
       const response = await axios.get(`http://localhost:3100/feed/${dToken.id}/likedPosts`);
       if (response.data.success) {
+        console.log('좋아요한 게시글:', response.data.posts); // 추가된 코드
         setPosts(response.data.posts);
+      } else {
+        console.error('좋아요한 게시글 가져오기 오류:', response.data.message); // 에러 메시지 확인
       }
     } catch (error) {
-      console.error('좋아요한 게시글 가져오기 오류:', error);
+      console.error('좋아요한 게시글 가져오기 오류:', error); // 에러 확인
+    }
+  };
+  const handleViewChange = (type) => {
+    setViewType(type);
+    if (type === "myPosts") {
+      fetchMyPosts();
+    } else {
+      fetchLikedPosts(); // 좋아요한 게시글을 가져오는 함수 호출
     }
   };
 
@@ -83,12 +94,7 @@ function MyPage() {
         alignItems="center"
         justifyContent="flex-start"
         minHeight="100vh"
-        sx={{
-          padding: '30px',
-          backgroundColor: '#f9fbfc',
-          borderRadius: 3,
-          boxShadow: 4
-        }}
+        sx={{ padding: '30px' }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', marginTop: 3, mb: 2 }}>
           <Avatar
@@ -121,10 +127,7 @@ function MyPage() {
         <Toolbar sx={{ justifyContent: 'center', marginTop: 3 }}>
           <Button
             variant={viewType === "myPosts" ? "contained" : "outlined"}
-            onClick={() => {
-              setViewType("myPosts");
-              fetchMyPosts();
-            }}
+            onClick={() => handleViewChange("myPosts")}
             sx={{
               marginRight: 2,
               color: viewType === "myPosts" ? 'white' : 'primary',
@@ -136,10 +139,7 @@ function MyPage() {
           </Button>
           <Button
             variant={viewType === "likedPosts" ? "contained" : "outlined"}
-            onClick={() => {
-              setViewType("likedPosts");
-              fetchLikedPosts();
-            }}
+            onClick={() => handleViewChange("likedPosts")}
             sx={{
               color: viewType === "likedPosts" ? 'white' : 'primary',
               backgroundColor: viewType === "likedPosts" ? '#4a90e2' : 'transparent',
@@ -152,18 +152,34 @@ function MyPage() {
 
         <Box sx={{ marginTop: 3, width: '100%' }}>
           {posts.length > 0 ? (
-            posts.map((post, index) => (
-              <Paper key={index} sx={{ padding: 2, marginBottom: 2, borderRadius: 2, boxShadow: 2, backgroundColor: '#ffffff' }}>
-                <Typography variant="h6" fontWeight="bold" color="primary">{post.content}</Typography>
-                {post.imageUrl && (
-                  <img
-                    src={post.imageUrl}
-                    alt={`Post image ${index}`}
-                    style={{ width: '100%', height: 'auto', marginTop: '10px', borderRadius: '8px' }}
-                  />
-                )}
-              </Paper>
-            ))
+            <Grid container spacing={4}>
+              {posts.map((post, index) => (
+                <Grid item xs={12} sm={6} md={4} key={index}>
+                  <Card sx={{
+                    borderRadius: '16px',
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.12)',
+                    overflow: 'hidden',
+                    transition: '0.3s',
+                    '&:hover': { transform: 'scale(1.02)' }
+                  }}>
+                    <CardMedia
+                      component="img"
+                      image={`http://localhost:3100/${post.image_urls?.split(',')[0] || 'default-image-url.jpg'}`}
+                      alt={`Post image ${index}`}
+                      sx={{
+                        cursor: 'pointer',
+                        width: '100%',
+                        maxHeight: '500px',
+                        objectFit: 'cover',
+                      }}
+                    />
+                    <CardContent>
+                      <Typography variant="h6" color="primary">{post.content}</Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
           ) : (
             <Typography variant="body1" color="text.secondary" textAlign="center" sx={{ padding: 2 }}>
               게시글이 없습니다.
